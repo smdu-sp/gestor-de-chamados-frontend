@@ -53,6 +53,12 @@ export async function NavMain() {
 
 	const menuAdmin: IMenu[] = [
 		{
+			icone: House,
+			titulo: 'Categorias',
+			url: 'categorias',
+		},
+
+		{
 			icone: Users,
 			titulo: 'Usuários',
 			url: '/usuarios',
