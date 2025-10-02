@@ -1,1 +1,0 @@
-export { buscarTodasCategorias } from "./buscar-tudo";
