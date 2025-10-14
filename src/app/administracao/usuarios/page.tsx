@@ -36,11 +36,13 @@ import { UserResponse } from "@/types/api";
 import { getRoleBadge } from "@/lib/badge-utils";
 import { ViewDetailsDialog } from "@/components/view-details-dialog";
 import { EditDialog } from "@/components/edit-dialog";
-import { UsersService } from "@/services/users.service";
+// import { UsersService } from "@/services/users.service"; // Comentado temporariamente
+import { GoUsersService } from "@/services/go-users.service"; // Usando o adaptador Go
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserResponse[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -56,23 +58,28 @@ export default function UsersPage() {
     status: "active",
   });
 
-  // Load users from API
   useEffect(() => {
     loadUsers();
   }, []);
 
   const loadUsers = async () => {
-    setIsLoading(true);
     try {
-      const response = await UsersService.getUsers({
-        page: 1,
-        limit: 100,
-      });
-      setUsers(response.data);
-    } catch (error) {
-      console.error("Erro ao carregar usuários:", error);
+      setLoading(true);
+      setError(null);
+
+      // Usando o serviço adaptador do Go temporariamente
+      const fetchedUsers = await GoUsersService.getUsers();
+      setUsers(fetchedUsers);
+
+      // TODO: Quando o backend estiver completo, voltar para:
+      // const fetchedUsers = await UsersService.getUsers();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erro ao carregar usuários"
+      );
+      console.error("Erro ao carregar usuários:", err);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -87,16 +94,21 @@ export default function UsersPage() {
     return matchesSearch && matchesStatus && matchesRole;
   });
 
+  // TODO: Implementar outras funções quando o backend Go estiver completo
+  // const handleSubmit = async (userData: any) => { ... }
+  // const handleEdit = async (id: string, userData: any) => { ... }
+  // const handleDelete = async (id: string) => { ... }
+  // const toggleUserStatus = async (userId: string) => { ... }
+
   const handleCreateUser = async () => {
     try {
-      await UsersService.createUser({
-        name: newUser.name,
-        email: newUser.email,
-        password: newUser.password,
-        role: newUser.role,
-        workUnit: newUser.workUnit,
-      });
+      // TODO: Implementar quando o backend Go tiver o endpoint de criação de usuário
+      console.log(
+        "Criação de usuário será implementada quando o backend Go estiver completo:",
+        newUser
+      );
 
+      // Temporariamente, apenas feche o dialog
       setIsNewUserDialogOpen(false);
       setNewUser({
         name: "",
@@ -107,7 +119,15 @@ export default function UsersPage() {
         status: "active",
       });
 
-      await loadUsers();
+      // TODO: Quando implementado, descomente:
+      // await GoUsersService.createUser({
+      //   name: newUser.name,
+      //   email: newUser.email,
+      //   password: newUser.password,
+      //   role: newUser.role,
+      //   workUnit: newUser.workUnit,
+      // });
+      // await loadUsers();
     } catch (error) {
       console.error("Error creating user:", error);
     }
@@ -115,16 +135,25 @@ export default function UsersPage() {
 
   const handleToggleUserStatus = async (userId: string) => {
     try {
-      await UsersService.toggleUserStatus(parseInt(userId));
-      await loadUsers();
+      // TODO: Implementar quando o backend Go tiver o endpoint de toggle de status
+      console.log(
+        "Toggle de status será implementado quando o backend Go estiver completo:",
+        userId
+      );
+
+      // Temporariamente, apenas feche o dialog
       setConfirmDialogOpen(false);
       setUserToToggle(null);
+
+      // TODO: Quando implementado, descomente:
+      // await GoUsersService.toggleUserStatus(parseInt(userId));
+      // await loadUsers();
     } catch (error) {
       console.error("Error toggling user status:", error);
     }
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -160,6 +189,12 @@ export default function UsersPage() {
               <DialogTitle>Criar Novo Usuário</DialogTitle>
               <DialogDescription>
                 Preencha as informações do novo usuário
+                {/* TODO: Remover esta mensagem quando o backend estiver completo */}
+                <br />
+                <span className="text-yellow-600 text-sm">
+                  (Funcionalidade será implementada quando o backend Go estiver
+                  completo)
+                </span>
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -367,6 +402,12 @@ export default function UsersPage() {
               users.find((u) => u.id === userToToggle)?.status === "active"
                 ? "Tem certeza que deseja desativar este usuário?"
                 : "Tem certeza que deseja ativar este usuário?"}
+              {/* TODO: Remover esta mensagem quando o backend estiver completo */}
+              <br />
+              <span className="text-yellow-600 text-sm">
+                (Funcionalidade será implementada quando o backend Go estiver
+                completo)
+              </span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

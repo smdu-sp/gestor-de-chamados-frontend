@@ -68,6 +68,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { TechnicianCategory } from "@/types/auth";
 import { CallsService } from "@/services/calls.service";
 import { UsersService } from "@/services/users.service";
+import { GoCallsService } from "@/services/go-calls.service";
+import type { GoCallFilters } from "@/types/go-backend";
 import { CALL_CATEGORIES, CALL_STATUS, CALL_PRIORITIES } from "@/lib/constants";
 
 export default function TechnicianAreaPage() {
@@ -104,85 +106,90 @@ export default function TechnicianAreaPage() {
   const [assignedCallsState, setAssignedCallsState] = useState<any[]>([]);
   const [unassignedCallsState, setUnassignedCallsState] = useState<any[]>([]);
   const [availableTechnicians, setAvailableTechnicians] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalCalls: 0,
+    openCalls: 0,
+    inProgressCalls: 0,
+    resolvedCalls: 0,
+    myAssignedCalls: 0,
+  });
 
-  // TODO: Integrar com backend - carregar dados dos chamados
-  useEffect(() => {
-    const loadCalls = async () => {
-      try {
-        setLoading(true);
+  const loadCalls = useCallback(async () => {
+    if (!user) return;
 
-        // Carregar chamados atribuídos ao técnico logado ou todos (se admin)
-        const assignedCallsResponse = await CallsService.getCalls(
+    try {
+      setLoading(true);
+
+      // Carregar chamados atribuídos ao usuário
+      const assignedCallsResponse = await GoCallsService.getCalls(
+        { page: 1, limit: 100 },
+        {
+          assignedTo: [user.id],
+          status: ["in_progress", "pending"],
+        } as GoCallFilters
+      );
+      setAssignedCallsState(assignedCallsResponse.data);
+
+      // Carregar chamados não atribuídos
+      const unassignedCallsResponse = await GoCallsService.getCalls(
+        { page: 1, limit: 100 },
+        {
+          status: ["open"],
+        } as GoCallFilters
+      );
+      setUnassignedCallsState(
+        (unassignedCallsResponse.data || []).filter((c: any) => !c.assignedTo)
+      );
+
+      // Carregar estatísticas
+      const allCallsResponse = await GoCallsService.getCalls(
+        { page: 1, limit: 1000 },
+        {} as GoCallFilters
+      );
+      const allCalls = allCallsResponse.data || [];
+
+      setStats({
+        totalCalls: allCalls.length,
+        openCalls: allCalls.filter((c: any) => c.status === "open").length,
+        inProgressCalls: allCalls.filter((c: any) => c.status === "in_progress").length,
+        resolvedCalls: allCalls.filter((c: any) => c.status === "resolved").length,
+        myAssignedCalls: allCalls.filter((c: any) => c.assignedTo?.id === parseInt(user.id)).length,
+      });
+
+      // Carregar lista de técnicos (se admin)
+      if (user?.role === "admin" || user?.role === "developer") {
+        const techniciansResponse = await UsersService.getUsers(
           { page: 1, limit: 100 },
-          {
-            assignedTo:
-              user?.role === "technician" ? [parseInt(user.id)] : undefined,
-            status: ["in_progress", "pending"],
-          }
+          { role: ["technician"] }
         );
-        setAssignedCallsState(assignedCallsResponse.data);
-
-        // Carregar chamados não atribuídos
-        const unassignedCallsResponse = await CallsService.getCalls(
-          { page: 1, limit: 100 },
-          {
-            // Não use assignedTo: null, o tipo não aceita null
-            status: ["open"],
-          }
-        );
-        // Filtrar somente os não atribuídos no client
-        setUnassignedCallsState(
-          (unassignedCallsResponse.data || []).filter((c: any) => !c.assignedTo)
-        );
-
-        // Carregar lista de técnicos (se admin)
-        if (user?.role === "admin" || user?.role === "developer") {
-          const techniciansResponse = await UsersService.getUsers(
-            { page: 1, limit: 100 },
-            { role: ["technician"] }
-          );
-          setAvailableTechnicians(techniciansResponse.data);
-        }
-      } catch (error) {
-        console.error("Erro ao carregar chamados:", error);
-        toast.error("Erro ao carregar chamados");
-      } finally {
-        setLoading(false);
+        setAvailableTechnicians(techniciansResponse.data);
       }
-    };
-
-    if (user) {
-      loadCalls();
+    } catch (error) {
+      console.error("Erro ao carregar chamados:", error);
+      setAssignedCallsState([]);
+      setUnassignedCallsState([]);
+    } finally {
+      setLoading(false);
     }
   }, [user]);
 
-  // TODO: Integrar com backend - implementar atribuição de chamado
+  // TODO: Integrar com backend - carregar dados dos chamados
+  useEffect(() => {
+    if (user) {
+      loadCalls();
+    }
+  }, [user, loadCalls]);
+
+  // Implementar atribuição de chamado usando o backend Go
   const handleAssignCall = useCallback(
     async (callId: string) => {
       if (!user) return;
 
       try {
-        await CallsService.assignCall(parseInt(callId), parseInt(user.id));
+        await GoCallsService.assignCall(callId, user.id);
 
         // Recarregar dados após atribuição
-        const assignedCallsResponse = await CallsService.getCalls(
-          { page: 1, limit: 100 },
-          {
-            assignedTo: [parseInt(user.id)],
-            status: ["in_progress", "pending"],
-          }
-        );
-        setAssignedCallsState(assignedCallsResponse.data);
-
-        const unassignedCallsResponse = await CallsService.getCalls(
-          { page: 1, limit: 100 },
-          {
-            status: ["open"],
-          }
-        );
-        setUnassignedCallsState(
-          (unassignedCallsResponse.data || []).filter((c: any) => !c.assignedTo)
-        );
+        await loadCalls();
 
         toast.success(`Chamado ${callId} atribuído com sucesso!`);
       } catch (error) {
@@ -190,7 +197,7 @@ export default function TechnicianAreaPage() {
         toast.error("Erro ao atribuir chamado");
       }
     },
-    [user]
+    [user, loadCalls]
   );
 
   // TODO: Integrar com backend - filtrar técnicos por categoria

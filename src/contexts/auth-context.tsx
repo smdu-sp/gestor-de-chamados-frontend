@@ -1,8 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+// import { AuthService } from '@/services/auth.service' // Comentado temporariamente
+import { GoAuthService } from '@/services/go-auth.service'; // Usando o adaptador Go
 import { User } from '@/types/auth';
-import { AuthService } from '@/services/auth.service';
 
 interface AuthContextType {
   user: User | null;
@@ -19,16 +20,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    checkAuthStatus();
+    checkAuth();
   }, []);
 
-  const checkAuthStatus = async () => {
+  const checkAuth = async () => {
     try {
-      // Verificar se há token válido e buscar dados do usuário
-      const currentUser = await AuthService.getCurrentUser();
-      setUser(currentUser);
+      // Usando o serviço adaptador do Go temporariamente
+      if (GoAuthService.isAuthenticated()) {
+        const userData = await GoAuthService.getCurrentUser();
+        setUser(userData);
+      }
+      
+      // TODO: Quando o backend estiver completo, voltar para:
+      // if (AuthService.isAuthenticated()) {
+      //   const userData = await AuthService.getCurrentUser()
+      //   setUser(userData)
+      // }
+      
     } catch (error) {
-      console.error('Erro ao verificar status de autenticação:', error);
+      console.error('Auth check error:', error);
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -37,33 +47,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      setIsLoading(true);
-      const loginResponse = await AuthService.login({ email, password });
+      // Usando o serviço adaptador do Go temporariamente
+      const response = await GoAuthService.login({ login: email, password });
       
-      // Buscar dados completos do usuário após login
-      const userData = await AuthService.getCurrentUser();
-      setUser(userData);
+      // TODO: Quando o backend estiver completo, voltar para:
+      // const response = await AuthService.login({ email, password })
+      
+      setUser(response.user);
+      return response;
     } catch (error) {
-      console.error('Erro no login:', error);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const logout = async () => {
     try {
-      await AuthService.logout();
-    } catch (error) {
-      console.error('Erro no logout:', error);
-    } finally {
+      // Usando o serviço adaptador do Go temporariamente
+      await GoAuthService.logout();
+      
+      // TODO: Quando o backend estiver completo, voltar para:
+      // await AuthService.logout()
+      
       setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
     }
   };
 
   const refreshUser = async () => {
     try {
-      const userData = await AuthService.getCurrentUser();
+      // Usando o serviço adaptador do Go temporariamente
+      const userData = await GoAuthService.getCurrentUser();
+      
+      // TODO: Quando o backend estiver completo, voltar para:
+      // const userData = await AuthService.getCurrentUser();
+      
       setUser(userData);
     } catch (error) {
       console.error('Erro ao atualizar dados do usuário:', error);

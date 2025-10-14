@@ -49,18 +49,19 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { NewCallWizard } from "@/components/new-call-wizard";
-import { CallsService } from "@/services/calls.service";
+import { GoCallsService } from "@/services/go-calls.service";
 import { FeedbackService } from "@/services/feedback.service";
 import { useAuth } from "@/contexts/auth-context";
-import { CallResponse, CallFilters, PaginationParams } from "@/types/api";
+import type { CallResponse, CallFilters, PaginationParams } from "@/types/api";
+import type { GoCallFilters } from "@/types/go-backend";
 
-export default function MeusChamadosPage() {
+export default function MeusChemadosPage() {
   const { user } = useAuth();
   const [calls, setCalls] = useState<CallResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
   const [selectedCall, setSelectedCall] = useState<CallResponse | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
@@ -78,12 +79,15 @@ export default function MeusChamadosPage() {
   const loadMyCalls = async () => {
     try {
       setLoading(true);
-      // TODO: Backend Go - Implementar busca de chamados do usuário logado
-      const filters: CallFilters = {
-        createdBy: user?.id ? [parseInt(user.id)] : undefined,
+
+      // Usar filtros específicos do backend Go
+      const filters: GoCallFilters = {
+        createdBy: user?.id ? [user.id] : undefined,
         ...(searchTerm && { search: searchTerm }),
-        ...(statusFilter && { status: [statusFilter] }),
-        ...(priorityFilter && { priority: [priorityFilter] }),
+        ...(statusFilter &&
+          statusFilter !== "all" && { status: [statusFilter] }),
+        ...(priorityFilter &&
+          priorityFilter !== "all" && { priority: [priorityFilter] }),
       };
 
       const pagination: PaginationParams = {
@@ -93,10 +97,14 @@ export default function MeusChamadosPage() {
         sortOrder: "desc",
       };
 
-      const response = await CallsService.getCalls(pagination, filters);
+      console.log("🔍 Carregando chamados com filtros:", filters);
+
+      const response = await GoCallsService.getCalls(pagination, filters);
       setCalls(response.data);
+
+      console.log("✅ Chamados carregados:", response.data);
     } catch (error) {
-      console.error("Erro ao carregar meus chamados:", error);
+      console.error("💥 Erro ao carregar meus chamados:", error);
       // For now, set empty array to avoid errors
       setCalls([]);
     } finally {
@@ -232,9 +240,10 @@ export default function MeusChamadosPage() {
                 </CardContent>
               </Card>
             }
-            onSubmit={(data) => {
-              console.log("Novo chamado criado:", data);
-              // TODO: Backend Go - Implementar criação de chamado
+            onCallCreated={(call) => {
+              console.log("Novo chamado criado:", call);
+              // Recarregar a lista de chamados após criar um novo
+              loadMyCalls();
             }}
           />
 
@@ -364,7 +373,7 @@ export default function MeusChamadosPage() {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os status</SelectItem>
+                  <SelectItem value="all">Todos os status</SelectItem>
                   <SelectItem value="open">Aberto</SelectItem>
                   <SelectItem value="in_progress">Em atendimento</SelectItem>
                   <SelectItem value="pending">Pendente</SelectItem>
@@ -377,7 +386,7 @@ export default function MeusChamadosPage() {
                   <SelectValue placeholder="Prioridade" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as prioridades</SelectItem>
+                  <SelectItem value="all">Todas as prioridades</SelectItem>
                   <SelectItem value="urgent">Urgente</SelectItem>
                   <SelectItem value="high">Alta</SelectItem>
                   <SelectItem value="medium">Média</SelectItem>

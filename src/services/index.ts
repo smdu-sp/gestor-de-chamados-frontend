@@ -9,7 +9,24 @@ import { ReportsService } from './reports.service'
 import { SettingsService } from './settings.service'
 import { NotificationsService } from './notifications.service'
 
-export { AuthService, CallsService, UsersService, DashboardService, ReportsService, SettingsService, NotificationsService }
+// Go backend services
+import { GoAuthService } from './go-auth.service'
+import { GoUsersService } from './go-users.service'
+import { GoCallsService } from './go-calls.service'
+
+export { 
+  AuthService, 
+  CallsService, 
+  UsersService, 
+  DashboardService, 
+  ReportsService, 
+  SettingsService, 
+  NotificationsService,
+  // Go backend services
+  GoAuthService,
+  GoUsersService,
+  GoCallsService
+}
 
 // Default exports
 export { default as AuthServiceDefault } from './auth.service'

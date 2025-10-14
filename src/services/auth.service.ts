@@ -31,8 +31,10 @@ export class AuthService {
         throw new Error('Invalid login data')
       }
 
-      // Store tokens
-      TokenManager.setAccessToken(loginData.accessToken, loginData.expiresIn)
+      // Store tokens - Corrigido para usar as propriedades corretas do LoginResponse
+      // LoginResponse tem 'token' (não 'accessToken') e não tem 'expiresIn'
+      // Usando um valor padrão de 3600 segundos (1 hora) para expiresIn
+      TokenManager.setAccessToken(loginData.token, 3600)
       TokenManager.setRefreshToken(loginData.refreshToken)
       
       return loginData

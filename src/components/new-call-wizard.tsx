@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +39,13 @@ import {
   ChevronRight,
   Check,
   Plus,
+  Loader2,
 } from "lucide-react";
+import { GoCallsService } from "@/services/go-calls.service";
+import { GoUsersService } from "@/services/go-users.service";
+import { useAuth } from "@/contexts/auth-context";
+import { toast } from "sonner";
+import type { GoCreateCallRequest } from "@/types/go-backend";
 
 // Tipos de chamado disponíveis
 const callTypes = [
@@ -159,12 +165,14 @@ interface CallData {
 
 interface NewCallWizardProps {
   trigger?: React.ReactNode;
-  onSubmit?: (data: CallData) => void;
+  onCallCreated: (call: any) => void;
 }
 
-export function NewCallWizard({ trigger, onSubmit }: NewCallWizardProps) {
+export function NewCallWizard({ trigger, onCallCreated }: NewCallWizardProps) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSearchingUser, setIsSearchingUser] = useState(false);
   const [callData, setCallData] = useState<CallData>({
     type: "",
     subcategory: "",
@@ -177,6 +185,56 @@ export function NewCallWizard({ trigger, onSubmit }: NewCallWizardProps) {
     callerPhone: "",
     workUnit: "",
   });
+
+  // Preencher dados do usuário logado quando "Para mim mesmo" for selecionado
+  useEffect(() => {
+    if (user && callData.isForSelf) {
+      setCallData((prev) => ({
+        ...prev,
+        callerName: user.name || "",
+        callerEmail: user.email || "",
+        callerPhone: "", // Telefone opcional
+        workUnit: user.workUnit || "Não informado", // Valor padrão se não tiver
+      }));
+    }
+  }, [user, callData.isForSelf]);
+
+  // Função para buscar usuário por RF
+  const handleSearchUser = async () => {
+    if (!callData.rf.trim()) {
+      toast.error("Digite um RF para buscar");
+      return;
+    }
+
+    setIsSearchingUser(true);
+    try {
+      const foundUser = await GoUsersService.searchUserByRF(callData.rf);
+
+      setCallData((prev) => ({
+        ...prev,
+        callerName: foundUser.name || "",
+        callerEmail: foundUser.email || "",
+        callerPhone: "", // TODO: Adicionar telefone no backend
+        workUnit: foundUser.workUnit || "",
+      }));
+
+      toast.success("Usuário encontrado!");
+    } catch (error) {
+      console.error("Erro ao buscar usuário:", error);
+      toast.error("Usuário não encontrado");
+
+      // Limpar campos se não encontrar
+      setCallData((prev) => ({
+        ...prev,
+        callerName: "",
+        callerEmail: "",
+        callerPhone: "",
+        workUnit: "",
+      }));
+    } finally {
+      setIsSearchingUser(false);
+    }
+  };
 
   const totalSteps = 5;
 
@@ -192,26 +250,50 @@ export function NewCallWizard({ trigger, onSubmit }: NewCallWizardProps) {
     }
   }, [currentStep]);
 
-  const handleSubmit = useCallback(() => {
-    if (onSubmit) {
-      onSubmit(callData);
+  const handleSubmit = useCallback(async () => {
+    try {
+      // Preparar dados para o backend Go
+      const goCallData: GoCreateCallRequest = {
+        caller: callData.callerName,
+        email: callData.callerEmail,
+        phone: callData.callerPhone || "", // Telefone opcional
+        workUnit: callData.workUnit || "Não informado", // Valor padrão
+        issue: callData.title,
+        description: callData.description,
+        priority: "medium" as "low" | "medium" | "high" | "urgent",
+        category: callData.type,
+        tags: [callData.subcategory],
+      };
+
+      console.log("🔍 Criando chamado:", goCallData);
+
+      const newCall = await GoCallsService.createCall(goCallData);
+
+      console.log("✅ Chamado criado:", newCall);
+
+      toast.success("Chamado criado com sucesso!");
+      onCallCreated(newCall);
+      setOpen(false);
+
+      // Reset form
+      setCurrentStep(1);
+      setCallData({
+        type: "",
+        subcategory: "",
+        title: "",
+        description: "",
+        isForSelf: true,
+        rf: "",
+        callerName: "",
+        callerEmail: "",
+        callerPhone: "",
+        workUnit: "",
+      });
+    } catch (error) {
+      console.error("💥 Erro ao criar chamado:", error);
+      toast.error("Erro ao criar chamado. Tente novamente.");
     }
-    setOpen(false);
-    // Reset form
-    setCurrentStep(1);
-    setCallData({
-      type: "",
-      subcategory: "",
-      title: "",
-      description: "",
-      isForSelf: true,
-      rf: "",
-      callerName: "",
-      callerEmail: "",
-      callerPhone: "",
-      workUnit: "",
-    });
-  }, [onSubmit, callData]);
+  }, [onCallCreated, callData]);
 
   const canProceed = useCallback(() => {
     switch (currentStep) {
@@ -227,15 +309,15 @@ export function NewCallWizard({ trigger, onSubmit }: NewCallWizardProps) {
         if (callData.isForSelf) {
           return (
             callData.callerName.trim() !== "" &&
-            callData.callerEmail.trim() !== "" &&
-            callData.workUnit !== ""
+            callData.callerEmail.trim() !== ""
+            // Removido a obrigatoriedade de workUnit e phone
           );
         } else {
           return (
             callData.rf.trim() !== "" &&
             callData.callerName.trim() !== "" &&
-            callData.callerEmail.trim() !== "" &&
-            callData.workUnit !== ""
+            callData.callerEmail.trim() !== ""
+            // Removido a obrigatoriedade de workUnit
           );
         }
       case 5:
@@ -485,10 +567,10 @@ export function NewCallWizard({ trigger, onSubmit }: NewCallWizardProps) {
                     ...callData,
                     isForSelf: true,
                     rf: "",
-                    callerName: "João Silva", // Dados pré-preenchidos do usuário logado
-                    callerEmail: "joao.silva@empresa.com",
-                    callerPhone: "(11) 99999-9999",
-                    workUnit: "TI",
+                    callerName: user?.name || "",
+                    callerEmail: user?.email || "",
+                    callerPhone: "",
+                    workUnit: user?.workUnit || "",
                   })
                 }
                 className="mr-2"
@@ -535,21 +617,18 @@ export function NewCallWizard({ trigger, onSubmit }: NewCallWizardProps) {
               />
               <button
                 type="button"
-                onClick={() => {
-                  // Simular busca por RF - aqui seria uma chamada à API
-                  if (callData.rf.trim()) {
-                    setCallData({
-                      ...callData,
-                      callerName: "Maria Santos", // Dados encontrados pela busca
-                      callerEmail: "maria.santos@empresa.com",
-                      callerPhone: "(11) 88888-8888",
-                      workUnit: "RH",
-                    });
-                  }
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onClick={handleSearchUser}
+                disabled={isSearchingUser}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
-                Buscar
+                {isSearchingUser ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Buscando...
+                  </>
+                ) : (
+                  "Buscar"
+                )}
               </button>
             </div>
           </div>
@@ -569,7 +648,7 @@ export function NewCallWizard({ trigger, onSubmit }: NewCallWizardProps) {
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Digite o nome completo"
-              readOnly={callData.isForSelf}
+              disabled={callData.isForSelf}
             />
           </div>
           <div>
@@ -584,7 +663,7 @@ export function NewCallWizard({ trigger, onSubmit }: NewCallWizardProps) {
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Digite o e-mail"
-              readOnly={callData.isForSelf}
+              disabled={callData.isForSelf}
             />
           </div>
           <div>
@@ -599,7 +678,7 @@ export function NewCallWizard({ trigger, onSubmit }: NewCallWizardProps) {
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Digite o telefone"
-              readOnly={callData.isForSelf}
+              disabled={callData.isForSelf}
             />
           </div>
           <div>

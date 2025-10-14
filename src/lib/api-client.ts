@@ -139,6 +139,7 @@ class HttpClient {
       const response = await fetch(fullUrl, {
         ...options,
         headers,
+        credentials: 'include', // ✅ ADICIONADO: Para CORS/cookies
         signal: controller.signal,
       })
 
