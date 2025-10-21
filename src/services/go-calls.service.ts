@@ -1,7 +1,7 @@
 // Serviço específico para chamados do backend Go
 // Mantém o CallsService original intacto
 
-import { apiClient, handleApiResponse } from "@/lib/api-client";
+import { goApiClient, handleApiResponse } from "@/lib/api-client";
 import { handleApiError } from "@/lib/error-handler";
 import { GO_API_ENDPOINTS } from "@/lib/api-config";
 import { mapGoCallToFrontend } from "@/types/go-backend";
@@ -23,18 +23,56 @@ export class GoCallsService {
     filters?: GoCallFilters
   ): Promise<PaginatedResponse<any>> {
     try {
-      const params = {
-        page: pagination.page,
-        limit: pagination.limit,
-        sortBy: pagination.sortBy,
-        sortOrder: pagination.sortOrder,
-        ...filters,
+      // Construir parâmetros garantindo que todos sejam strings
+      // Usando nomes em português que o backend Go espera
+      const params: Record<string, string> = {
+        pagina: pagination.page.toString(),
+        limite: "10", // Forçando 10 itens por página
       };
 
-      const response = await apiClient.get<GoCall[]>(
+      // Adicionar sortBy e sortOrder se existirem
+      if (pagination.sortBy) {
+        params.ordenarPor = pagination.sortBy; // Testando nome em português
+      }
+      if (pagination.sortOrder) {
+        params.ordem = pagination.sortOrder; // Testando nome em português
+      }
+
+      // Adicionar filtros, convertendo arrays para strings separadas por vírgula
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            if (Array.isArray(value)) {
+              // Converter arrays para strings separadas por vírgula
+              if (value.length > 0) {
+                params[key] = value.join(",");
+              }
+            } else {
+              params[key] = value.toString();
+            }
+          }
+        });
+      }
+
+      console.log("🌐 GoCallsService.getCalls - Parâmetros:", params);
+      console.log(
+        "🔗 GoCallsService.getCalls - URL:",
+        GO_API_ENDPOINTS.CALLS.LIST
+      );
+
+      // Log da URL completa que será enviada
+      const searchParams = new URLSearchParams(params).toString();
+      console.log(
+        "🔗 GoCallsService.getCalls - URL completa:",
+        `${GO_API_ENDPOINTS.CALLS.LIST}?${searchParams}`
+      );
+
+      const response = await goApiClient.get<GoCall[]>(
         GO_API_ENDPOINTS.CALLS.LIST,
         params
       );
+
+      console.log("📡 GoCallsService.getCalls - Resposta bruta:", response);
 
       // O backend Go pode retornar os dados diretamente ou em response.data
       let responseData: any;
@@ -73,6 +111,14 @@ export class GoCallsService {
       // Converter chamados do Go para o formato do frontend
       const frontendCalls = await Promise.all(calls.map(mapGoCallToFrontend));
 
+      console.log("🔄 GoCallsService.getCalls - Dados processados:", {
+        calls: calls.length,
+        frontendCalls: frontendCalls.length,
+        total,
+        currentPage,
+        limit,
+      });
+
       // Usar a paginação real do backend Go
       return {
         data: frontendCalls,
@@ -96,7 +142,7 @@ export class GoCallsService {
    */
   static async getCall(id: string): Promise<any> {
     try {
-      const response = await apiClient.get<GoCall>(
+      const response = await goApiClient.get<GoCall>(
         GO_API_ENDPOINTS.CALLS.GET(id)
       );
 
@@ -120,7 +166,7 @@ export class GoCallsService {
    */
   static async createCall(callData: GoCreateCallRequest): Promise<any> {
     try {
-      const response = await apiClient.post<GoCall>(
+      const response = await goApiClient.post<GoCall>(
         GO_API_ENDPOINTS.CALLS.CREATE,
         callData
       );
@@ -154,7 +200,7 @@ export class GoCallsService {
     callData: GoUpdateCallRequest
   ): Promise<any> {
     try {
-      const response = await apiClient.put<GoCall>(
+      const response = await goApiClient.put<GoCall>(
         GO_API_ENDPOINTS.CALLS.UPDATE(id),
         callData
       );
@@ -182,7 +228,7 @@ export class GoCallsService {
    */
   static async deleteCall(id: string): Promise<void> {
     try {
-      await apiClient.delete(GO_API_ENDPOINTS.CALLS.DELETE(id));
+      await goApiClient.delete(GO_API_ENDPOINTS.CALLS.DELETE(id));
     } catch (error) {
       handleApiError(error, {
         service: "GoCallsService",
@@ -197,7 +243,7 @@ export class GoCallsService {
    */
   static async assignCall(callId: string, userId: string): Promise<any> {
     try {
-      const response = await apiClient.put<GoCall>(
+      const response = await goApiClient.put<GoCall>(
         GO_API_ENDPOINTS.CALLS.UPDATE(callId),
         { assignedToId: userId }
       );

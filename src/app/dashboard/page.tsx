@@ -1,6 +1,5 @@
 "use client";
-
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import {
   Card,
@@ -55,6 +54,8 @@ import {
   getUnitBadge,
 } from "@/lib/badge-utils";
 import Link from "next/link";
+import { GoCallsService } from "@/services/go-calls.service";
+import { GoCallFilters } from "@/types/go-backend";
 
 type DashboardType = "executive" | "operational";
 
@@ -184,27 +185,57 @@ export default function DashboardPage() {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        // TODO: Replace with actual API calls to Go backend
-        // const statsResponse = await fetch('/api/dashboard/stats');
-        // const recentCallsResponse = await fetch('/api/dashboard/recent-calls');
-        // const topPerformersResponse = await fetch('/api/dashboard/top-performers');
-        // const evolutionResponse = await fetch('/api/dashboard/evolution');
-        // const statusResponse = await fetch('/api/dashboard/status');
-        // const techniciansResponse = await fetch('/api/dashboard/technicians');
+        // Carregar chamados recentes do backend Go (apenas para exibição)
+        const recentCallsResponse = await GoCallsService.getCalls(
+          { page: 1, limit: 10, sortBy: "createdAt", sortOrder: "desc" },
+          {} as GoCallFilters
+        );
 
-        // setDashboardStats(await statsResponse.json());
-        // setRecentCalls(await recentCallsResponse.json());
-        // setTopPerformers(await topPerformersResponse.json());
-        // setEvolutionData(await evolutionResponse.json());
-        // setStatusData(await statusResponse.json());
-        // setCallsByTechnician(await techniciansResponse.json());
+        // Converter os dados para o formato esperado pelo dashboard
+        const formattedRecentCalls: RecentCall[] = recentCallsResponse.data.map(
+          (call: any) => ({
+            id: call.id,
+            caller:
+              call.caller || call.createdBy?.name || "Usuário não identificado",
+            issue: call.title || call.issue || "Problema não especificado",
+            priority: call.priority || "low",
+            status: call.status || "open",
+            workUnit: call.workUnit || "Não informado",
+            assignedTo: call.assignedTo?.name || undefined,
+            createdAt: call.createdAt || new Date().toISOString(),
+          })
+        );
 
-        // For now, using placeholder data
-        setTimeout(() => {
-          setLoading(false);
-        }, 1000);
+        setRecentCalls(formattedRecentCalls);
+
+        // Carregar TODOS os chamados para calcular estatísticas corretas
+        const allCallsResponse = await GoCallsService.getCalls(
+          { page: 1, limit: 1000, sortBy: "createdAt", sortOrder: "desc" },
+          {} as GoCallFilters
+        );
+
+        // Calcular estatísticas de status baseadas em TODOS os chamados
+        const statusCounts = allCallsResponse.data.reduce(
+          (acc: any, call: any) => {
+            const status = call.status || "open";
+            if (status === "open") acc.novo = (acc.novo || 0) + 1;
+            else if (status === "resolved" || status === "closed")
+              acc.fechado = (acc.fechado || 0) + 1;
+            else if (status === "in_progress" || status === "pending")
+              acc["em-atendimento"] = (acc["em-atendimento"] || 0) + 1;
+            return acc;
+          },
+          { novo: 0, fechado: 0, "em-atendimento": 0 }
+        );
+
+        setStatusData(statusCounts);
+
+        setLoading(false);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
+        // Em caso de erro, manter dados vazios
+        setRecentCalls([]);
+        setStatusData({ novo: 0, fechado: 0, "em-atendimento": 0 });
         setLoading(false);
       }
     };
@@ -520,25 +551,27 @@ export default function DashboardPage() {
             <CardContent>
               <div className="space-y-4">
                 {topPerformers.length > 0 ? (
-                  topPerformers.map((performer, index) => (
-                    <div
-                      key={performer.email}
-                      className="flex items-center space-x-4"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                        <Users className="h-5 w-5" />
+                  topPerformers.map(
+                    (performer: TopPerformer, index: number) => (
+                      <div
+                        key={performer.email}
+                        className="flex items-center space-x-4"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          <Users className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{performer.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {performer.email}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold">{performer.calls}</p>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <p className="font-medium">{performer.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {performer.email}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold">{performer.calls}</p>
-                      </div>
-                    </div>
-                  ))
+                    )
+                  )
                 ) : (
                   <p className="text-muted-foreground text-center py-4">
                     Nenhum dado disponível
@@ -558,7 +591,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="space-y-4">
                 {recentCalls.length > 0 ? (
-                  recentCalls.map((call) => (
+                  recentCalls.map((call: RecentCall) => (
                     <div
                       key={call.id}
                       className="flex items-center justify-between p-4 border rounded-lg"
@@ -773,7 +806,7 @@ export default function DashboardPage() {
                   Abrir Novo Chamado
                 </Button>
               }
-              onSubmit={(data) => {
+              onCallCreated={(data) => {
                 console.log("Novo chamado criado no dashboard:", data);
                 // Aqui você pode implementar a lógica para salvar o chamado
               }}

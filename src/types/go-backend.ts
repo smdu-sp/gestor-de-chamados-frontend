@@ -5,111 +5,123 @@ import { CategoriasService } from "@/services/categorias.service";
 
 // Base response structure from Go backend
 export interface GoApiResponse<T = any> {
-  success: boolean
-  data?: T
-  message?: string
-  error?: string
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
 }
 
 // Authentication types para o backend Go
 export interface GoLoginRequest {
-  login: string    // Campo específico do backend Go
-  password: string
-  auth_type?: 'local' | 'ldap'  // Tipo de autenticação opcional
+  login: string; // Campo específico do backend Go
+  password: string;
+  auth_type?: "local" | "ldap"; // Tipo de autenticação opcional
 }
 
 export interface GoLoginResponse {
-  access_token: string     // Token JWT do backend Go
-  refresh_token: string    // Refresh token do backend Go
+  access_token: string; // Token JWT do backend Go
+  refresh_token: string; // Refresh token do backend Go
 }
 
 // User types específicos do backend Go
 export interface GoUser {
-  id: string
-  nome: string      // Campo 'nome' do backend Go
-  login: string     // Campo 'login' do backend Go
-  email: string
-  permissao: string // Campo 'permissao' do backend Go (USR, ADM, SUP, DEV)
+  id: string;
+  nome: string; // Campo 'nome' do backend Go
+  login: string; // Campo 'login' do backend Go
+  email: string;
+  permissao: string; // Campo 'permissao' do backend Go (USR, ADM, SUP, DEV)
 }
 
 // Call/Ticket types específicos do backend Go
 export interface GoCall {
-  id: string
-  protocol: string
-  caller: string
-  email: string
-  phone: string
-  workUnit: string
-  issue: string
-  description: string
-  priority: "low" | "medium" | "high" | "urgent"
-  status: "open" | "in_progress" | "pending" | "resolved" | "closed" | "cancelled"
-  category: string
-  assignedTo?: string
-  assignedToId?: string
-  createdBy: string
-  createdAt: string
-  updatedAt: string
-  resolvedAt?: string
-  closedAt?: string
-  estimatedResolution?: string
-  actualResolution?: string
-  tags?: string[]
+  id: string;
+  protocol: string;
+  caller: string;
+  email: string;
+  phone: string;
+  workUnit: string;
+  issue: string;
+  description: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  status:
+    | "open"
+    | "in_progress"
+    | "pending"
+    | "resolved"
+    | "closed"
+    | "cancelled";
+  category: string;
+  assignedTo?: string;
+  assignedToId?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt?: string;
+  closedAt?: string;
+  estimatedResolution?: string;
+  actualResolution?: string;
+  tags?: string[];
 }
 
 // Formato antigo (não usado mais)
 export interface GoCreateCallRequestOld {
-  caller: string
-  email: string
-  phone: string
-  workUnit: string
-  issue: string
-  description: string
-  priority: "low" | "medium" | "high" | "urgent"
-  category: string
-  tags?: string[]
+  caller: string;
+  email: string;
+  phone: string;
+  workUnit: string;
+  issue: string;
+  description: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  category: string;
+  tags?: string[];
 }
 
 // Formato correto que o backend Go espera
 export interface GoCreateCallRequest {
-  titulo: string
-  descricao: string
-  categoriaId: string
-  subcategoriaId: string
-  criadorId: string
+  titulo: string;
+  descricao: string;
+  categoriaId: string;
+  subcategoriaId: string;
+  criadorId: string;
 }
 
 export interface GoUpdateCallRequest {
-  issue?: string
-  description?: string
-  priority?: "low" | "medium" | "high" | "urgent"
-  status?: "open" | "in_progress" | "pending" | "resolved" | "closed" | "cancelled"
-  category?: string
-  assignedToId?: string
-  estimatedResolution?: string
-  actualResolution?: string
-  tags?: string[]
+  issue?: string;
+  description?: string;
+  priority?: "low" | "medium" | "high" | "urgent";
+  status?:
+    | "open"
+    | "in_progress"
+    | "pending"
+    | "resolved"
+    | "closed"
+    | "cancelled";
+  category?: string;
+  assignedToId?: string;
+  estimatedResolution?: string;
+  actualResolution?: string;
+  tags?: string[];
 }
 
 export interface GoCallFilters {
-  status?: string[]
-  priority?: string[]
-  category?: string[]
-  workUnit?: string[]
-  assignedTo?: string[]
-  createdBy?: string[]
-  dateFrom?: string
-  dateTo?: string
-  search?: string
+  status?: string[];
+  priority?: string[];
+  category?: string[];
+  workUnit?: string[];
+  assignedTo?: string[];
+  createdBy?: string[];
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
 }
 
 // Mapeamento de permissões do Go para o frontend
 export const GO_PERMISSION_MAP = {
-  'USR': 'user',
-  'ADM': 'admin', 
-  'SUP': 'support',
-  'DEV': 'developer'
-} as const
+  USR: "user",
+  ADM: "admin",
+  SUP: "support",
+  DEV: "developer",
+} as const;
 
 // Função para converter usuário do Go para o formato do frontend
 export function mapGoUserToFrontend(goUser: GoUser): any {
@@ -118,14 +130,16 @@ export function mapGoUserToFrontend(goUser: GoUser): any {
     name: goUser.nome,
     login: goUser.login,
     email: goUser.email,
-    role: GO_PERMISSION_MAP[goUser.permissao as keyof typeof GO_PERMISSION_MAP] || 'user',
-    workUnit: '', // TODO: Adicionar quando o backend Go implementar
-    status: 'active', // TODO: Adicionar quando o backend Go implementar
-    avatar: '', // TODO: Adicionar quando o backend Go implementar
+    role:
+      GO_PERMISSION_MAP[goUser.permissao as keyof typeof GO_PERMISSION_MAP] ||
+      "user",
+    workUnit: "", // TODO: Adicionar quando o backend Go implementar
+    status: "active", // TODO: Adicionar quando o backend Go implementar
+    avatar: "", // TODO: Adicionar quando o backend Go implementar
     createdAt: new Date().toISOString(), // TODO: Adicionar quando o backend Go implementar
     updatedAt: new Date().toISOString(), // TODO: Adicionar quando o backend Go implementar
-    lastLogin: null // TODO: Adicionar quando o backend Go implementar
-  }
+    lastLogin: null, // TODO: Adicionar quando o backend Go implementar
+  };
 }
 
 // Cache de categorias e subcategorias
@@ -136,18 +150,20 @@ let cacheInitialized = false;
 // Função para inicializar o cache de categorias
 async function initializeCategoriesCache(): Promise<void> {
   if (cacheInitialized) return;
-  
+
   try {
     // Buscar todas as categorias
     const categorias = await CategoriasService.getCategorias();
-    categorias.forEach(categoria => {
-      categoriesCache.set(categoria.id, categoria.nome);
+    categorias.forEach((categoria) => {
+      const fixedName = fixUTF8String(categoria.nome);
+      categoriesCache.set(categoria.id, fixedName);
     });
 
     // Buscar todas as subcategorias
     const subcategorias = await CategoriasService.getSubcategorias();
-    subcategorias.forEach(subcategoria => {
-      subcategoriesCache.set(subcategoria.id, subcategoria.nome);
+    subcategorias.forEach((subcategoria) => {
+      const fixedName = fixUTF8String(subcategoria.nome);
+      subcategoriesCache.set(subcategoria.id, fixedName);
     });
 
     cacheInitialized = true;
@@ -156,26 +172,54 @@ async function initializeCategoriesCache(): Promise<void> {
   }
 }
 
+// Função utilitária para corrigir encoding UTF-8
+function fixUTF8String(str: string): string {
+  if (!str || typeof str !== "string") return str;
+
+  try {
+    // Verifica se a string já está corretamente codificada
+    if (!/[ÃÂ]/.test(str)) {
+      return str;
+    }
+
+    // Tenta corrigir usando decodeURIComponent + escape
+    const fixed = decodeURIComponent(escape(str));
+
+    // Verifica se a correção foi bem-sucedida
+    if (fixed !== str && !/[ÃÂ]/.test(fixed)) {
+      return fixed;
+    }
+
+    return str;
+  } catch (error) {
+    // Se houver erro, retorna a string original
+    return str;
+  }
+}
+
 // Função para converter chamado do Go para o formato do frontend
 export async function mapGoCallToFrontend(goCall: any): Promise<any> {
   // Inicializar cache se necessário
   await initializeCategoriesCache();
-  
+
   // Buscar nomes das categorias no cache local
   let categoryName = "Não categorizado";
-  
+
   if (goCall.subcategoriaId) {
     let cachedName = subcategoriesCache.get(goCall.subcategoriaId);
     if (cachedName) {
-      categoryName = cachedName;
+      categoryName = fixUTF8String(cachedName);
     } else {
       // Tentar buscar a subcategoria diretamente do backend
       try {
-        const subcategoria = await CategoriasService.getSubcategoria(goCall.subcategoriaId);
+        const subcategoria = await CategoriasService.getSubcategoria(
+          goCall.subcategoriaId
+        );
         if (subcategoria && subcategoria.nome) {
-          categoryName = subcategoria.nome;
-          // Atualizar o cache
-          subcategoriesCache.set(goCall.subcategoriaId, subcategoria.nome);
+          const fixedName = fixUTF8String(subcategoria.nome);
+          categoryName = fixedName;
+          // Atualizar o cache com o nome corrigido
+          subcategoriesCache.set(goCall.subcategoriaId, fixedName);
         } else {
           categoryName = "Subcategoria não encontrada";
         }
@@ -186,15 +230,18 @@ export async function mapGoCallToFrontend(goCall: any): Promise<any> {
   } else if (goCall.categoriaId) {
     let cachedName = categoriesCache.get(goCall.categoriaId);
     if (cachedName) {
-      categoryName = cachedName;
+      categoryName = fixUTF8String(cachedName);
     } else {
       // Tentar buscar a categoria diretamente do backend
       try {
-        const categoria = await CategoriasService.getCategoria(goCall.categoriaId);
+        const categoria = await CategoriasService.getCategoria(
+          goCall.categoriaId
+        );
         if (categoria && categoria.nome) {
-          categoryName = categoria.nome;
-          // Atualizar o cache
-          categoriesCache.set(goCall.categoriaId, categoria.nome);
+          const fixedName = fixUTF8String(categoria.nome);
+          categoryName = fixedName;
+          // Atualizar o cache com o nome corrigido
+          categoriesCache.set(goCall.categoriaId, fixedName);
         } else {
           categoryName = "Categoria não encontrada";
         }
@@ -203,7 +250,7 @@ export async function mapGoCallToFrontend(goCall: any): Promise<any> {
       }
     }
   }
-  
+
   // Mapear campos do backend Go (português) para o frontend (inglês)
   const frontendCall = {
     id: goCall.id, // Manter como string UUID do backend Go
@@ -219,22 +266,26 @@ export async function mapGoCallToFrontend(goCall: any): Promise<any> {
     phone: goCall.telefone || goCall.phone,
     createdBy: {
       id: goCall.criado_por || goCall.createdBy, // Manter UUID como string
-      name: goCall.solicitante || goCall.caller || '',
-      email: goCall.email || ''
+      name: goCall.solicitante || goCall.caller || "",
+      email: goCall.email || "",
     },
-    assignedTo: (goCall.atribuido_para_id || goCall.assignedToId) ? {
-      id: goCall.atribuido_para_id || goCall.assignedToId, // Manter UUID como string
-      name: goCall.atribuido_para || goCall.assignedTo || '',
-      email: ''
-    } : undefined,
+    assignedTo:
+      goCall.atribuido_para_id || goCall.assignedToId
+        ? {
+            id: goCall.atribuido_para_id || goCall.assignedToId, // Manter UUID como string
+            name: goCall.atribuido_para || goCall.assignedTo || "",
+            email: "",
+          }
+        : undefined,
     createdAt: goCall.criadoEm || goCall.criado_em || goCall.createdAt,
     updatedAt: goCall.atualizadoEm || goCall.atualizado_em || goCall.updatedAt,
     resolvedAt: goCall.resolvidoEm || goCall.resolvido_em || goCall.resolvedAt,
     closedAt: goCall.fechadoEm || goCall.fechado_em || goCall.closedAt,
-    estimatedResolution: goCall.resolucao_estimada || goCall.estimatedResolution,
+    estimatedResolution:
+      goCall.resolucao_estimada || goCall.estimatedResolution,
     actualResolution: goCall.resolucao_real || goCall.actualResolution,
-    tags: goCall.tags || []
+    tags: goCall.tags || [],
   };
-  
+
   return frontendCall;
 }

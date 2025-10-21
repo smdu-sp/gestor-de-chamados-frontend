@@ -46,19 +46,20 @@ import {
   Plus,
   Settings,
   Wrench,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { NewCallWizard } from "@/components/new-call-wizard";
 import { GoCallsService } from "@/services/go-calls.service";
 import { FeedbackService } from "@/services/feedback.service";
 import { useAuth } from "@/contexts/auth-context";
+import { usePaginatedApi } from "@/hooks/use-api";
 import type { CallResponse, CallFilters, PaginationParams } from "@/types/api";
 import type { GoCallFilters } from "@/types/go-backend";
 
 export default function MeusChemadosPage() {
   const { user } = useAuth();
-  const [calls, setCalls] = useState<CallResponse[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -70,43 +71,102 @@ export default function MeusChemadosPage() {
   const canAccessTechnicianArea =
     user && ["technician", "admin", "developer"].includes(user.role);
 
+  // Configurar filtros para a API
+  const getFilters = (): GoCallFilters => {
+    const filters: GoCallFilters = {};
+
+    // TEMPORÁRIO: Comentar filtro por usuário para testar
+    // if (user?.id) {
+    //   filters.createdBy = [user.id];
+    // }
+
+    // Adicionar filtros de busca
+    if (searchTerm) {
+      filters.search = searchTerm;
+    }
+
+    // Adicionar filtros de status
+    if (statusFilter && statusFilter !== "all") {
+      filters.status = [statusFilter];
+    }
+
+    // Adicionar filtros de prioridade
+    if (priorityFilter && priorityFilter !== "all") {
+      filters.priority = [priorityFilter];
+    }
+
+    console.log("🔍 Filtros aplicados:", filters);
+    console.log("👤 Usuário atual:", user);
+
+    return filters;
+  };
+
+  // Usar o hook de paginação
+  const {
+    data: paginatedResponse,
+    loading,
+    error,
+    pagination,
+    goToPage,
+    changePageSize,
+    updateFilters,
+    refetch,
+  } = usePaginatedApi(
+    (paginationParams, filters) => {
+      console.log("🎯 usePaginatedApi - apiCall sendo executada com:", {
+        paginationParams,
+        filters,
+      });
+      return GoCallsService.getCalls(paginationParams, filters);
+    },
+    { page: 1, limit: 20, sortBy: "createdAt", sortOrder: "desc" },
+    {}, // Inicializar com filtros vazios
+    {
+      immediate: false, // Não carregar imediatamente
+      onSuccess: (data) => {
+        console.log("🎉 usePaginatedApi - Sucesso:", data);
+      },
+      onError: (error) => {
+        console.error("💥 usePaginatedApi - Erro:", error);
+      },
+    }
+  );
+
+  // Atualizar filtros quando mudarem
   useEffect(() => {
     if (user) {
-      loadMyCalls();
+      const filters = getFilters();
+      updateFilters(filters);
     }
-  }, [user, searchTerm, statusFilter, priorityFilter]);
+  }, [user?.id, searchTerm, statusFilter, priorityFilter]); // Dependências específicas
 
-  const loadMyCalls = async () => {
-    try {
-      setLoading(true);
-
-      // Usar filtros específicos do backend Go
-      const filters: GoCallFilters = {
-        createdBy: user?.id ? [user.id] : undefined,
-        ...(searchTerm && { search: searchTerm }),
-        ...(statusFilter &&
-          statusFilter !== "all" && { status: [statusFilter] }),
-        ...(priorityFilter &&
-          priorityFilter !== "all" && { priority: [priorityFilter] }),
-      };
-
-      const pagination: PaginationParams = {
-        page: 1,
-        limit: 50,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      };
-
-      const response = await GoCallsService.getCalls(pagination, filters);
-      setCalls(response.data);
-    } catch (error) {
-      console.error("💥 Erro ao carregar meus chamados:", error);
-      // For now, set empty array to avoid errors
-      setCalls([]);
-    } finally {
-      setLoading(false);
+  // Carregar dados inicialmente quando o usuário estiver disponível
+  useEffect(() => {
+    if (user?.id) {
+      console.log("🚀 Carregando chamados para usuário:", user.id);
+      console.log("🔧 Chamando refetch...");
+      refetch()
+        .then((result) => {
+          console.log("✅ Refetch concluído com sucesso:", result);
+        })
+        .catch((error) => {
+          console.error("❌ Erro no refetch:", error);
+        });
     }
-  };
+  }, [user?.id, refetch]);
+
+  const calls = paginatedResponse?.data || [];
+
+  console.log("📊 Estado atual:", {
+    loading,
+    error,
+    calls: calls.length,
+    paginatedResponse,
+    user: user?.id,
+  });
+  const totalPages = paginatedResponse?.pagination?.totalPages || 0;
+  const currentPage = pagination.page;
+  const totalItems = paginatedResponse?.pagination?.total || 0;
 
   const openDetails = (call: CallResponse) => {
     setSelectedCall(call);
@@ -144,7 +204,7 @@ export default function MeusChemadosPage() {
       );
       setFeedbackDialogOpen(false);
       setSelectedCall(null);
-      await loadMyCalls();
+      await refetch();
     } catch (error) {
       console.error("Erro ao enviar feedback:", error);
     }
@@ -201,7 +261,29 @@ export default function MeusChemadosPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Carregando seus chamados...</div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <div className="text-lg">Carregando seus chamados...</div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <div className="text-lg text-red-600 mb-2">
+              Erro ao carregar chamados
+            </div>
+            <div className="text-sm text-muted-foreground mb-4">{error}</div>
+            <Button onClick={() => refetch()} variant="outline">
+              Tentar novamente
+            </Button>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -240,7 +322,7 @@ export default function MeusChemadosPage() {
               console.log("🎉 Novo chamado criado:", call);
               console.log("🔄 Recarregando lista de chamados...");
               // Recarregar a lista de chamados após criar um novo
-              loadMyCalls()
+              refetch()
                 .then(() => {
                   console.log("✅ Lista de chamados recarregada com sucesso");
                 })
@@ -306,7 +388,7 @@ export default function MeusChemadosPage() {
               <AlertCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{calls.length}</div>
+              <div className="text-2xl font-bold">{totalItems}</div>
             </CardContent>
           </Card>
           <Card>
@@ -488,7 +570,7 @@ export default function MeusChemadosPage() {
               </TableBody>
             </Table>
 
-            {calls.length === 0 && (
+            {calls.length === 0 && !loading && (
               <div className="text-center py-8">
                 <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">
@@ -497,6 +579,94 @@ export default function MeusChemadosPage() {
                 <p className="text-muted-foreground">
                   Tente ajustar os filtros ou criar um novo chamado.
                 </p>
+              </div>
+            )}
+
+            {/* Controles de Paginação */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t">
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <span>
+                    Mostrando {(currentPage - 1) * 10 + 1} a{" "}
+                    {Math.min(currentPage * 10, totalItems)} de {totalItems}{" "}
+                    chamados
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  {/* Botão Página Anterior */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </Button>
+
+                  {/* Números das Páginas */}
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNumber;
+                      if (totalPages <= 5) {
+                        pageNumber = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNumber = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNumber = totalPages - 4 + i;
+                      } else {
+                        pageNumber = currentPage - 2 + i;
+                      }
+
+                      return (
+                        <Button
+                          key={pageNumber}
+                          variant={
+                            currentPage === pageNumber ? "default" : "outline"
+                          }
+                          size="sm"
+                          onClick={() => goToPage(pageNumber)}
+                          className="w-8 h-8 p-0"
+                        >
+                          {pageNumber}
+                        </Button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Botão Próxima Página */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Próxima
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Seletor de itens por página */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-muted-foreground">
+                    Itens por página:
+                  </span>
+                  <Select
+                    value={pagination.limit.toString()}
+                    onValueChange={(value) => changePageSize(parseInt(value))}
+                  >
+                    <SelectTrigger className="w-20 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
           </CardContent>
