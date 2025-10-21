@@ -1,7 +1,7 @@
 // API Client configuration and base HTTP client
 
 import { ApiResponse, ApiError } from '@/types/api'
-import { API_BASE_URL, REQUEST_TIMEOUT, RETRY_CONFIG, API_ENDPOINTS } from './api-config'
+import { API_BASE_URL, REQUEST_TIMEOUT, RETRY_CONFIG, API_ENDPOINTS, GO_API_ENDPOINTS, GO_API_BASE_URL } from './api-config'
 
 // API Configuration
 const API_CONFIG = {
@@ -121,7 +121,9 @@ class HttpClient {
     
     // Set default headers
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
+      'Accept': 'application/json; charset=utf-8',
+      'Accept-Charset': 'utf-8',
       ...options.headers,
     }
 
@@ -139,7 +141,6 @@ class HttpClient {
       const response = await fetch(fullUrl, {
         ...options,
         headers,
-        credentials: 'include', // ✅ ADICIONADO: Para CORS/cookies
         signal: controller.signal,
       })
 
@@ -208,12 +209,13 @@ class HttpClient {
     }
 
     try {
-      const response = await fetch(`${this.baseURL}/auth/refresh`, {
+      // Usar o endpoint correto do GO_API_ENDPOINTS
+      const response = await fetch(`${this.baseURL}${GO_API_ENDPOINTS.AUTH.REFRESH}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify({ refresh_token: refreshToken }),
       })
 
       if (!response.ok) {
@@ -222,8 +224,17 @@ class HttpClient {
       }
 
       const data = await response.json()
-      TokenManager.setAccessToken(data.data.token, data.data.expiresIn)
-      TokenManager.setRefreshToken(data.data.refreshToken)
+      
+      // O backend agora retorna access_token e refresh_token diretamente
+      if (!data.access_token) {
+        TokenManager.clearTokens()
+        return false;
+      }
+
+      TokenManager.setAccessToken(data.access_token, 24 * 60 * 60) // 24h
+      if (data.refresh_token) {
+        TokenManager.setRefreshToken(data.refresh_token)
+      }
       return true
     } catch (error) {
       TokenManager.clearTokens()
@@ -280,8 +291,19 @@ class HttpClient {
   }
 }
 
-// Create and export the API client instance
+// Create and export the// Create API client instances
 export const apiClient = new HttpClient(API_CONFIG)
+
+// Go Backend API Configuration
+const GO_API_CONFIG = {
+  baseURL: GO_API_BASE_URL,
+  timeout: REQUEST_TIMEOUT,
+  retryAttempts: RETRY_CONFIG.attempts,
+  retryDelay: RETRY_CONFIG.delay,
+}
+
+// Create Go API client instance with UTF-8 support
+export const goApiClient = new HttpClient(GO_API_CONFIG)
 
 // Export token manager for use in auth context
 export { TokenManager }
@@ -292,6 +314,17 @@ export const handleApiResponse = <T>(response: ApiResponse<T>): T => {
     throw new Error(response.error || response.message || 'API request failed')
   }
   return response.data as T
+}
+
+// Utility function for Go API responses (returns data directly)
+export const handleGoApiResponse = <T>(response: ApiResponse<T>): T => {
+  // O backend Go retorna os dados diretamente, mas o goApiClient ainda retorna ApiResponse
+  // Extrair os dados da estrutura ApiResponse
+  if (response && typeof response === 'object' && 'data' in response) {
+    return response.data as T;
+  }
+  // Se não tem estrutura ApiResponse, retorna diretamente
+  return response as T;
 }
 
 export const handleApiError = (error: any): string => {

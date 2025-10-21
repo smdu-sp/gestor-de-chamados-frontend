@@ -43,91 +43,100 @@ import {
 } from "lucide-react";
 import { GoCallsService } from "@/services/go-calls.service";
 import { GoUsersService } from "@/services/go-users.service";
+import { CategoriasService } from "@/services/categorias.service";
 import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import type { GoCreateCallRequest } from "@/types/go-backend";
 
-// Tipos de chamado disponíveis
+// Tipos de chamado disponíveis (baseado nas categorias do banco)
 const callTypes = [
   {
-    id: "voip",
-    name: "VOIP",
-    description: "Problemas com telefonia IP, ramais e comunicação",
-    icon: Phone,
+    id: "01998000-0000-7000-8000-000000000001",
+    key: "suporte-tecnico",
+    name: "Suporte Técnico",
+    description: "Hardware, software, rede e sistemas operacionais",
+    icon: Computer,
     color: "bg-blue-500",
   },
   {
-    id: "impressora",
-    name: "IMPRESSORA",
-    description:
-      "Problemas com impressoras, scanners e equipamentos de impressão",
-    icon: Printer,
+    id: "01998000-0000-7000-8000-000000000002",
+    key: "infraestrutura",
+    name: "Infraestrutura",
+    description: "Servidores, backup, segurança e monitoramento",
+    icon: Monitor,
     color: "bg-green-500",
   },
   {
-    id: "manutencao",
-    name: "MANUTENÇÃO",
-    description: "Manutenção preventiva e corretiva de equipamentos",
+    id: "01998000-0000-7000-8000-000000000003",
+    key: "desenvolvimento",
+    name: "Desenvolvimento",
+    description: "Bugs, features, melhorias e documentação",
     icon: Wrench,
-    color: "bg-orange-500",
-  },
-  {
-    id: "sistemas",
-    name: "SISTEMAS",
-    description: "Problemas com softwares, aplicações e sistemas internos",
-    icon: Monitor,
     color: "bg-purple-500",
   },
   {
-    id: "hardware",
-    name: "HARDWARE",
-    description: "Problemas com hardware, desktops e notebooks",
-    icon: Computer,
+    id: "01998000-0000-7000-8000-000000000004",
+    key: "voip",
+    name: "VOIP",
+    description: "Telefonia, ramais, conferências e comunicação",
+    icon: Phone,
+    color: "bg-orange-500",
+  },
+  {
+    id: "01998000-0000-7000-8000-000000000005",
+    key: "impressao",
+    name: "Impressão",
+    description: "Impressoras, toner, papel e configurações",
+    icon: Printer,
     color: "bg-red-500",
+  },
+  {
+    id: "01998000-0000-7000-8000-000000000006",
+    key: "cadastro",
+    name: "Cadastro",
+    description: "Usuários, permissões, dados e sistema",
+    icon: Plus,
+    color: "bg-gray-500",
   },
 ];
 
-// Subcategorias para cada tipo de chamado
+// Subcategorias para cada tipo de chamado (baseado nos dados do banco)
 const subcategories = {
-  voip: [
-    { id: "erro", name: "Erro" },
-    { id: "criacao-ramal", name: "Criação de ramal" },
-    { id: "configuracao-ramal", name: "Configuração de ramal" },
-    { id: "outros", name: "Outros" },
+  "01998000-0000-7000-8000-000000000001": [
+    { id: "01998000-0001-7000-8000-000000000001", name: "Hardware" },
+    { id: "01998000-0001-7000-8000-000000000002", name: "Software" },
+    { id: "01998000-0001-7000-8000-000000000003", name: "Rede" },
+    { id: "01998000-0001-7000-8000-000000000004", name: "Sistema Operacional" },
   ],
-  manutencao: [
-    { id: "luz", name: "Luz" },
-    { id: "tomadas", name: "Tomadas" },
-    { id: "encanamento", name: "Encanamento" },
-    { id: "moveis-quebrados", name: "Móveis quebrados" },
-    { id: "outros", name: "Outros" },
+  "01998000-0000-7000-8000-000000000002": [
+    { id: "01998000-0001-7000-8000-000000000005", name: "Servidor" },
+    { id: "01998000-0001-7000-8000-000000000006", name: "Backup" },
+    { id: "01998000-0001-7000-8000-000000000007", name: "Segurança" },
+    { id: "01998000-0001-7000-8000-000000000008", name: "Monitoramento" },
   ],
-  hardware: [
-    { id: "computador", name: "Computador" },
-    { id: "mouse", name: "Mouse" },
-    { id: "teclado", name: "Teclado" },
-    { id: "notebook", name: "Notebook" },
-    { id: "camera", name: "Câmera" },
-    { id: "projetor", name: "Projetor" },
-    { id: "outros", name: "Outros" },
+  "01998000-0000-7000-8000-000000000003": [
+    { id: "01998000-0001-7000-8000-000000000009", name: "Bug" },
+    { id: "01998000-0001-7000-8000-000000000010", name: "Feature" },
+    { id: "01998000-0001-7000-8000-000000000011", name: "Melhoria" },
+    { id: "01998000-0001-7000-8000-000000000012", name: "Documentação" },
   ],
-  impressora: [
-    { id: "erro", name: "Erro" },
-    { id: "falta-papel", name: "Falta de papel" },
-    { id: "instalacao-impressora", name: "Instalação de impressora" },
-    {
-      id: "solicitacao-nova-impressora",
-      name: "Solicitação de nova impressora",
-    },
-    { id: "troca-toner", name: "Troca de toner" },
-    { id: "outros", name: "Outros" },
+  "01998000-0000-7000-8000-000000000004": [
+    { id: "01998000-0001-7000-8000-000000000013", name: "Telefone" },
+    { id: "01998000-0001-7000-8000-000000000014", name: "Ramal" },
+    { id: "01998000-0001-7000-8000-000000000015", name: "Conferência" },
+    { id: "01998000-0001-7000-8000-000000000016", name: "Erro" },
   ],
-  sistemas: [
-    { id: "criacao-usuario", name: "Criação de usuário" },
-    { id: "assinatura", name: "Assinatura" },
-    { id: "erro-sistema", name: "Erro em sistema" },
-    { id: "intranet", name: "Intranet" },
-    { id: "outros", name: "Outros" },
+  "01998000-0000-7000-8000-000000000005": [
+    { id: "01998000-0001-7000-8000-000000000017", name: "Impressora" },
+    { id: "01998000-0001-7000-8000-000000000018", name: "Toner" },
+    { id: "01998000-0001-7000-8000-000000000019", name: "Papel" },
+    { id: "01998000-0001-7000-8000-000000000020", name: "Configuração" },
+  ],
+  "01998000-0000-7000-8000-000000000006": [
+    { id: "01998000-0001-7000-8000-000000000021", name: "Usuário" },
+    { id: "01998000-0001-7000-8000-000000000022", name: "Permissão" },
+    { id: "01998000-0001-7000-8000-000000000023", name: "Dados" },
+    { id: "01998000-0001-7000-8000-000000000024", name: "Sistema" },
   ],
 };
 
@@ -161,6 +170,7 @@ interface CallData {
   callerEmail: string;
   callerPhone: string;
   workUnit: string;
+  priority: "low" | "medium" | "high" | "urgent";
 }
 
 interface NewCallWizardProps {
@@ -184,6 +194,7 @@ export function NewCallWizard({ trigger, onCallCreated }: NewCallWizardProps) {
     callerEmail: "",
     callerPhone: "",
     workUnit: "",
+    priority: "low", // Valor padrão
   });
 
   // Preencher dados do usuário logado quando "Para mim mesmo" for selecionado
@@ -220,7 +231,6 @@ export function NewCallWizard({ trigger, onCallCreated }: NewCallWizardProps) {
 
       toast.success("Usuário encontrado!");
     } catch (error) {
-      console.error("Erro ao buscar usuário:", error);
       toast.error("Usuário não encontrado");
 
       // Limpar campos se não encontrar
@@ -252,24 +262,29 @@ export function NewCallWizard({ trigger, onCallCreated }: NewCallWizardProps) {
 
   const handleSubmit = useCallback(async () => {
     try {
-      // Preparar dados para o backend Go
+      // Obter o usuário atual para o criadorId
+      const currentUser = user;
+      if (!currentUser) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
+      // Usar diretamente os IDs das categorias e subcategorias selecionadas
+      const categoriaId = callData.type;
+      const subcategoriaId = callData.subcategory;
+
+      // Preparar dados para o backend Go com o formato correto
       const goCallData: GoCreateCallRequest = {
-        caller: callData.callerName,
-        email: callData.callerEmail,
-        phone: callData.callerPhone || "", // Telefone opcional
-        workUnit: callData.workUnit || "Não informado", // Valor padrão
-        issue: callData.title,
-        description: callData.description,
-        priority: "medium" as "low" | "medium" | "high" | "urgent",
-        category: callData.type,
-        tags: [callData.subcategory],
+        titulo: callData.title || "Problema não especificado",
+        descricao: callData.description || "Descrição não fornecida",
+        categoriaId: categoriaId,
+        subcategoriaId: subcategoriaId,
+        criadorId: currentUser.id,
       };
 
-      console.log("🔍 Criando chamado:", goCallData);
+
 
       const newCall = await GoCallsService.createCall(goCallData);
-
-      console.log("✅ Chamado criado:", newCall);
 
       toast.success("Chamado criado com sucesso!");
       onCallCreated(newCall);
@@ -288,12 +303,12 @@ export function NewCallWizard({ trigger, onCallCreated }: NewCallWizardProps) {
         callerEmail: "",
         callerPhone: "",
         workUnit: "",
+        priority: "low", // Valor padrão
       });
     } catch (error) {
-      console.error("💥 Erro ao criar chamado:", error);
       toast.error("Erro ao criar chamado. Tente novamente.");
     }
-  }, [onCallCreated, callData]);
+  }, [onCallCreated, callData, user]);
 
   const canProceed = useCallback(() => {
     switch (currentStep) {

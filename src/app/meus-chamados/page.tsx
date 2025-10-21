@@ -97,12 +97,8 @@ export default function MeusChemadosPage() {
         sortOrder: "desc",
       };
 
-      console.log("🔍 Carregando chamados com filtros:", filters);
-
       const response = await GoCallsService.getCalls(pagination, filters);
       setCalls(response.data);
-
-      console.log("✅ Chamados carregados:", response.data);
     } catch (error) {
       console.error("💥 Erro ao carregar meus chamados:", error);
       // For now, set empty array to avoid errors
@@ -241,9 +237,19 @@ export default function MeusChemadosPage() {
               </Card>
             }
             onCallCreated={(call) => {
-              console.log("Novo chamado criado:", call);
+              console.log("🎉 Novo chamado criado:", call);
+              console.log("🔄 Recarregando lista de chamados...");
               // Recarregar a lista de chamados após criar um novo
-              loadMyCalls();
+              loadMyCalls()
+                .then(() => {
+                  console.log("✅ Lista de chamados recarregada com sucesso");
+                })
+                .catch((error) => {
+                  console.error(
+                    "💥 Erro ao recarregar lista de chamados:",
+                    error
+                  );
+                });
             }}
           />
 
@@ -432,11 +438,13 @@ export default function MeusChemadosPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{call.category}</Badge>
+                      <Badge variant="outline">
+                        {call.category || "Sem categoria"}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge className={getPriorityColor(call.priority)}>
-                        {getPriorityLabel(call.priority)}
+                        {getPriorityLabel(call.priority) || "Sem prioridade"}
                       </Badge>
                     </TableCell>
                     <TableCell>

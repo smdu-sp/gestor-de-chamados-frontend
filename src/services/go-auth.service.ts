@@ -7,57 +7,60 @@ import { GO_API_ENDPOINTS } from "@/lib/api-config";
 import { mapGoUserToFrontend } from "@/types/go-backend";
 import type {
   GoLoginRequest,
-  GoLoginResponse,
   GoUser,
   GoApiResponse,
 } from "@/types/go-backend";
 
+// Nova interface baseada na documentação do backend
+interface GoLoginResponse {
+  access_token: string;
+  refresh_token: string;
+}
+
 export class GoAuthService {
   /**
    * Login user with login and password (backend Go)
+   * Supports both regular authentication and LDAP
    */
-  static async login(credentials: GoLoginRequest): Promise<any> {
+  static async login(credentials: GoLoginRequest & { authType?: 'local' | 'ldap' }): Promise<any> {
     try {
-      console.log("🔍 Enviando credenciais:", credentials);
+      // Preparar payload simples sem auth_type por enquanto
+      // Payload correto conforme esperado pelo backend Go
+      const loginPayload = {
+        login: credentials.login,
+        senha: credentials.password
+      };
 
-      const response = await apiClient.post<GoApiResponse<GoLoginResponse>>(
+      const response = await apiClient.post<GoLoginResponse>(
         GO_API_ENDPOINTS.AUTH.LOGIN,
-        credentials
+        loginPayload
       );
 
-      console.log("📥 Resposta completa do backend:", response);
-      console.log("📊 response.data:", response.data);
+      // O backend agora retorna access_token e refresh_token diretamente
+      const loginData = response as any;
 
-      // ✅ CORREÇÃO: O backend Go retorna os dados diretamente
-      // Não usa a estrutura {success: true, data: {...}}
-      const loginData = response as any; // A resposta já é os dados do login
-
-      if (!loginData.token || !loginData.user) {
-        throw new Error("Invalid login response - missing token or user");
+      if (!loginData.access_token) {
+        throw new Error("Resposta de login inválida - access_token ausente");
       }
 
-      console.log("👤 Dados de login:", loginData);
-
-      // Store tokens
-      TokenManager.setAccessToken(loginData.token, 24 * 60 * 60); // 24 horas
-      if (loginData.refreshToken) {
-        TokenManager.setRefreshToken(loginData.refreshToken);
+      // Armazenar tokens com os novos nomes
+      TokenManager.setAccessToken(loginData.access_token, 24 * 60 * 60); // 24 horas
+      if (loginData.refresh_token) {
+        TokenManager.setRefreshToken(loginData.refresh_token);
       }
 
-      // Converter dados do Go para o formato do frontend
-      const frontendUser = mapGoUserToFrontend(loginData.user);
-      console.log("🔄 Usuário convertido:", frontendUser);
+      // Como o login não retorna mais o usuário, buscamos separadamente
+      const frontendUser = await this.getCurrentUser();
 
       return {
         user: frontendUser,
-        accessToken: loginData.token,
-        refreshToken: loginData.refreshToken || "",
+        accessToken: loginData.access_token,
+        refreshToken: loginData.refresh_token || "",
         expiresIn: 24 * 60 * 60,
         success: true,
         redirectTo: "/meus-chamados",
       };
     } catch (error) {
-      console.error("💥 Erro no login:", error);
       handleApiError(error, { service: "GoAuthService", method: "login" });
       throw error;
     }
@@ -72,12 +75,25 @@ export class GoAuthService {
         GO_API_ENDPOINTS.AUTH.PROFILE
       );
 
-      if (!response.data || !response.data.success) {
-        throw new Error(response.data?.error || "Failed to get user profile");
+      // Verifica se a resposta está encapsulada em GoApiResponse
+      if (typeof (response as any).success === 'boolean') {
+        if (!(response as any).success) {
+          throw new Error((response as any).error || "Falha ao obter perfil do usuário");
+        }
+        // Dados estão em 'data'
+        const goUser = (response as any).data;
+        if (!goUser) {
+          throw new Error("Dados do usuário não encontrados na resposta");
+        }
+        return mapGoUserToFrontend(goUser);
+      } else {
+        // Resposta direta do usuário (sem encapsulamento)
+        const goUser = response as any;
+        if (!goUser || !goUser.id) {
+          throw new Error("Dados do usuário inválidos");
+        }
+        return mapGoUserToFrontend(goUser);
       }
-
-      // Converter dados do Go para o formato do frontend
-      return mapGoUserToFrontend(response.data.data!);
     } catch (error) {
       handleApiError(error, {
         service: "GoAuthService",

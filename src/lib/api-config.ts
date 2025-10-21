@@ -3,7 +3,11 @@
 
 // Base API URL - Update this when backend is deployed
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  process.env.NEXT_PUBLIC_API_URL || "/api/backend";
+
+// Go Backend API URL
+export const GO_API_BASE_URL =
+  process.env.NEXT_PUBLIC_GO_API_URL || "http://localhost:8080";
 
 // ===== ENDPOINTS ATIVOS (Backend Go atual) =====
 export const GO_API_ENDPOINTS = {
@@ -11,7 +15,7 @@ export const GO_API_ENDPOINTS = {
   AUTH: {
     LOGIN: "/login",
     REFRESH: "/refresh",
-    PROFILE: "/me",
+    PROFILE: "/eu",
   },
 
   // User management endpoints (ativos no backend Go)
@@ -25,11 +29,27 @@ export const GO_API_ENDPOINTS = {
 
   // Call/Ticket management endpoints (ativos no backend Go)
   CALLS: {
-    LIST: "/api/calls",
-    CREATE: "/api/calls",
-    GET: (id: string) => `/api/calls/${id}`,
-    UPDATE: (id: string) => `/api/calls/${id}`,
-    DELETE: (id: string) => `/api/calls/${id}`,
+    LIST: "/chamados/buscar-tudo",
+    CREATE: "/chamados/criar",
+    GET: (id: string) => `/chamados/buscar-por-id/${id}`,
+    UPDATE: (id: string) => `/chamados/atualizar/${id}`,
+    DELETE: (id: string) => `/chamados/arquivar/${id}`,
+    LIST_ALL: "/chamados/lista-completa",
+    UPDATE_STATUS: (id: string) => `/chamados/atualizar-status/${id}`,
+    ARCHIVE: (id: string) => `/chamados/arquivar/${id}`,
+    UNARCHIVE: (id: string) => `/chamados/desarquivar/${id}`,
+    ASSIGN_TECHNICIAN: (id: string) => `/chamados/atribuir-tecnico/${id}`,
+    REMOVE_TECHNICIAN: (id: string) => `/chamados/remover-tecnico/${id}`,
+  },
+
+  // Category management endpoints (ativos no backend Go)
+  CATEGORIES: {
+    LIST: "/categorias/lista-completa",
+    GET: (id: string) => `/categorias/buscar-por-id/${id}`,
+    SUBCATEGORIES: {
+      LIST: "/subcategorias/lista-completa",
+      GET: (id: string) => `/subcategorias/buscar-por-id/${id}`,
+    },
   },
 };
 

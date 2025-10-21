@@ -24,14 +24,9 @@ export function useGoCalls(
       setLoading(true)
       setError(null)
       
-      console.log('🔍 Buscando chamados com:', { pagination, filters })
-      
       const response = await GoCallsService.getCalls(pagination, filters)
       setData(response.data)
-      
-      console.log('✅ Chamados carregados:', response.data)
     } catch (err) {
-      console.error('💥 Erro ao buscar chamados:', err)
       setError(err as Error)
       setData([])
     } finally {
@@ -81,14 +76,9 @@ export function useGoCall(id: string) {
       setLoading(true)
       setError(null)
       
-      console.log('🔍 Buscando chamado:', id)
-      
       const response = await GoCallsService.getCall(id)
       setData(response)
-      
-      console.log('✅ Chamado carregado:', response)
     } catch (err) {
-      console.error('💥 Erro ao buscar chamado:', err)
       setError(err as Error)
       setData(null)
     } finally {

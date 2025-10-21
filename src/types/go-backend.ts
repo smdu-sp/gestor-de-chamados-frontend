@@ -1,3 +1,5 @@
+import { CategoriasService } from "@/services/categorias.service";
+
 // Types específicos para o backend Go atual
 // Mantém os tipos existentes intactos em backend.ts
 
@@ -13,12 +15,12 @@ export interface GoApiResponse<T = any> {
 export interface GoLoginRequest {
   login: string    // Campo específico do backend Go
   password: string
+  auth_type?: 'local' | 'ldap'  // Tipo de autenticação opcional
 }
 
 export interface GoLoginResponse {
-  token: string        // Token JWT do backend Go
-  refreshToken: string // Refresh token do backend Go
-  user: GoUser         // Dados do usuário do backend Go
+  access_token: string     // Token JWT do backend Go
+  refresh_token: string    // Refresh token do backend Go
 }
 
 // User types específicos do backend Go
@@ -55,7 +57,8 @@ export interface GoCall {
   tags?: string[]
 }
 
-export interface GoCreateCallRequest {
+// Formato antigo (não usado mais)
+export interface GoCreateCallRequestOld {
   caller: string
   email: string
   phone: string
@@ -65,6 +68,15 @@ export interface GoCreateCallRequest {
   priority: "low" | "medium" | "high" | "urgent"
   category: string
   tags?: string[]
+}
+
+// Formato correto que o backend Go espera
+export interface GoCreateCallRequest {
+  titulo: string
+  descricao: string
+  categoriaId: string
+  subcategoriaId: string
+  criadorId: string
 }
 
 export interface GoUpdateCallRequest {
@@ -116,36 +128,113 @@ export function mapGoUserToFrontend(goUser: GoUser): any {
   }
 }
 
+// Cache de categorias e subcategorias
+let categoriesCache: Map<string, string> = new Map();
+let subcategoriesCache: Map<string, string> = new Map();
+let cacheInitialized = false;
+
+// Função para inicializar o cache de categorias
+async function initializeCategoriesCache(): Promise<void> {
+  if (cacheInitialized) return;
+  
+  try {
+    // Buscar todas as categorias
+    const categorias = await CategoriasService.getCategorias();
+    categorias.forEach(categoria => {
+      categoriesCache.set(categoria.id, categoria.nome);
+    });
+
+    // Buscar todas as subcategorias
+    const subcategorias = await CategoriasService.getSubcategorias();
+    subcategorias.forEach(subcategoria => {
+      subcategoriesCache.set(subcategoria.id, subcategoria.nome);
+    });
+
+    cacheInitialized = true;
+  } catch (error) {
+    // Silently handle errors
+  }
+}
+
 // Função para converter chamado do Go para o formato do frontend
-export function mapGoCallToFrontend(goCall: GoCall): any {
-  return {
-    id: parseInt(goCall.id),
-    title: goCall.issue,
-    description: goCall.description,
-    category: goCall.category,
-    priority: goCall.priority,
+export async function mapGoCallToFrontend(goCall: any): Promise<any> {
+  // Inicializar cache se necessário
+  await initializeCategoriesCache();
+  
+  // Buscar nomes das categorias no cache local
+  let categoryName = "Não categorizado";
+  
+  if (goCall.subcategoriaId) {
+    let cachedName = subcategoriesCache.get(goCall.subcategoriaId);
+    if (cachedName) {
+      categoryName = cachedName;
+    } else {
+      // Tentar buscar a subcategoria diretamente do backend
+      try {
+        const subcategoria = await CategoriasService.getSubcategoria(goCall.subcategoriaId);
+        if (subcategoria && subcategoria.nome) {
+          categoryName = subcategoria.nome;
+          // Atualizar o cache
+          subcategoriesCache.set(goCall.subcategoriaId, subcategoria.nome);
+        } else {
+          categoryName = "Subcategoria não encontrada";
+        }
+      } catch (error) {
+        categoryName = "Subcategoria não encontrada";
+      }
+    }
+  } else if (goCall.categoriaId) {
+    let cachedName = categoriesCache.get(goCall.categoriaId);
+    if (cachedName) {
+      categoryName = cachedName;
+    } else {
+      // Tentar buscar a categoria diretamente do backend
+      try {
+        const categoria = await CategoriasService.getCategoria(goCall.categoriaId);
+        if (categoria && categoria.nome) {
+          categoryName = categoria.nome;
+          // Atualizar o cache
+          categoriesCache.set(goCall.categoriaId, categoria.nome);
+        } else {
+          categoryName = "Categoria não encontrada";
+        }
+      } catch (error) {
+        categoryName = "Categoria não encontrada";
+      }
+    }
+  }
+  
+  // Mapear campos do backend Go (português) para o frontend (inglês)
+  const frontendCall = {
+    id: goCall.id, // Manter como string UUID do backend Go
+    title: goCall.titulo || goCall.issue || goCall.title,
+    description: goCall.descricao || goCall.description,
+    category: categoryName,
+    priority: "medium", // Valor padrão já que não há prioridade nos dados do backend
     status: goCall.status,
-    workUnit: goCall.workUnit,
-    protocol: goCall.protocol,
-    caller: goCall.caller,
+    workUnit: goCall.unidade_trabalho || goCall.workUnit,
+    protocol: goCall.protocolo || goCall.protocol,
+    caller: goCall.solicitante || goCall.caller,
     email: goCall.email,
-    phone: goCall.phone,
+    phone: goCall.telefone || goCall.phone,
     createdBy: {
-      id: parseInt(goCall.createdBy),
-      name: goCall.caller,
-      email: goCall.email
+      id: goCall.criado_por || goCall.createdBy, // Manter UUID como string
+      name: goCall.solicitante || goCall.caller || '',
+      email: goCall.email || ''
     },
-    assignedTo: goCall.assignedToId ? {
-      id: parseInt(goCall.assignedToId),
-      name: goCall.assignedTo || '',
+    assignedTo: (goCall.atribuido_para_id || goCall.assignedToId) ? {
+      id: goCall.atribuido_para_id || goCall.assignedToId, // Manter UUID como string
+      name: goCall.atribuido_para || goCall.assignedTo || '',
       email: ''
     } : undefined,
-    createdAt: goCall.createdAt,
-    updatedAt: goCall.updatedAt,
-    resolvedAt: goCall.resolvedAt,
-    closedAt: goCall.closedAt,
-    estimatedResolution: goCall.estimatedResolution,
-    actualResolution: goCall.actualResolution,
+    createdAt: goCall.criadoEm || goCall.criado_em || goCall.createdAt,
+    updatedAt: goCall.atualizadoEm || goCall.atualizado_em || goCall.updatedAt,
+    resolvedAt: goCall.resolvidoEm || goCall.resolvido_em || goCall.resolvedAt,
+    closedAt: goCall.fechadoEm || goCall.fechado_em || goCall.closedAt,
+    estimatedResolution: goCall.resolucao_estimada || goCall.estimatedResolution,
+    actualResolution: goCall.resolucao_real || goCall.actualResolution,
     tags: goCall.tags || []
-  }
+  };
+  
+  return frontendCall;
 }

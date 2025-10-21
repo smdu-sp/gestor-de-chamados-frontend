@@ -1,4 +1,5 @@
 {
   "/meus-chamados/page": "app/meus-chamados/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
   "/login/page": "app/login/page.js"
 }

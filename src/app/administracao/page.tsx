@@ -29,6 +29,7 @@ import {
   HardDrive,
   ArrowRight,
   Megaphone,
+  FolderTree,
 } from "lucide-react";
 import { UserRole } from "@/types/auth";
 import Link from "next/link";
@@ -58,6 +59,15 @@ const adminModules = [
     stats: "usuários",
     color: "text-blue-600",
     bgColor: "bg-blue-50",
+  },
+  {
+    title: "Categorias e Subcategorias",
+    description: "Gerenciar categorias e subcategorias de chamados",
+    icon: FolderTree,
+    href: "/administracao/categorias",
+    stats: "Configurar categorias",
+    color: "text-indigo-600",
+    bgColor: "bg-indigo-50",
   },
   {
     title: "Configurações do Dashboard",

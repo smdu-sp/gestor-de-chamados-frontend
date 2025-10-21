@@ -31,37 +31,61 @@ export class GoCallsService {
         ...filters,
       };
 
-      console.log("🔍 Buscando chamados com parâmetros:", params);
-
       const response = await apiClient.get<GoCall[]>(
         GO_API_ENDPOINTS.CALLS.LIST,
         params
       );
 
-      console.log("📥 Resposta do backend Go (chamados):", response);
+      // O backend Go pode retornar os dados diretamente ou em response.data
+      let responseData: any;
 
-      // Acessar os dados da resposta da API
-      const calls = Array.isArray(response.data) ? response.data : [];
+      // Se response tem a estrutura {total, pagina, limite, items} diretamente
+      if (response && typeof response === "object" && "items" in response) {
+        responseData = response as any;
+      }
+      // Se response.data tem a estrutura {total, pagina, limite, items}
+      else if (
+        response?.data &&
+        typeof response.data === "object" &&
+        "items" in response.data
+      ) {
+        responseData = response.data as any;
+      }
+      // Fallback: tentar response.data como array ou response como array
+      else {
+        responseData = {
+          items: Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response)
+            ? response
+            : [],
+          total: 0,
+          pagina: pagination.page,
+          limite: pagination.limit,
+        };
+      }
+
+      const calls = Array.isArray(responseData.items) ? responseData.items : [];
+      const total = responseData.total || 0;
+      const currentPage = responseData.pagina || pagination.page;
+      const limit = responseData.limite || pagination.limit;
 
       // Converter chamados do Go para o formato do frontend
-      const frontendCalls = calls.map(mapGoCallToFrontend);
+      const frontendCalls = await Promise.all(calls.map(mapGoCallToFrontend));
 
-      console.log("🔄 Chamados convertidos:", frontendCalls);
-
-      // Simular paginação por enquanto (TODO: implementar no backend Go)
+      // Usar a paginação real do backend Go
       return {
         data: frontendCalls,
         pagination: {
-          page: pagination.page,
-          limit: pagination.limit,
-          total: frontendCalls.length,
-          totalPages: Math.ceil(frontendCalls.length / pagination.limit),
-          hasNext: false,
-          hasPrev: false,
+          page: currentPage,
+          limit: limit,
+          total: total,
+          totalPages: Math.ceil(total / limit),
+          hasNext: currentPage * limit < total,
+          hasPrev: currentPage > 1,
         },
       };
     } catch (error) {
-      console.error("💥 Erro ao buscar chamados:", error);
       handleApiError(error, { service: "GoCallsService", method: "getCalls" });
       throw error;
     }
@@ -72,13 +96,9 @@ export class GoCallsService {
    */
   static async getCall(id: string): Promise<any> {
     try {
-      console.log("🔍 Buscando chamado:", id);
-
       const response = await apiClient.get<GoCall>(
         GO_API_ENDPOINTS.CALLS.GET(id)
       );
-
-      console.log("📥 Resposta do backend Go (chamado):", response);
 
       // Acessar os dados da resposta da API
       if (!response.data) {
@@ -86,13 +106,10 @@ export class GoCallsService {
       }
 
       // Converter chamado do Go para o formato do frontend
-      const frontendCall = mapGoCallToFrontend(response.data);
-
-      console.log("🔄 Chamado convertido:", frontendCall);
+      const frontendCall = await mapGoCallToFrontend(response.data);
 
       return frontendCall;
     } catch (error) {
-      console.error("💥 Erro ao buscar chamado:", error);
       handleApiError(error, { service: "GoCallsService", method: "getCall" });
       throw error;
     }
@@ -103,26 +120,23 @@ export class GoCallsService {
    */
   static async createCall(callData: GoCreateCallRequest): Promise<any> {
     try {
-      console.log("🔍 Criando chamado:", callData);
-
       const response = await apiClient.post<GoCall>(
         GO_API_ENDPOINTS.CALLS.CREATE,
         callData
       );
 
-      console.log("📥 Resposta do backend Go (criar chamado):", response);
+      // O backend Go retorna os dados diretamente no response, não em response.data
+      const responseData = response.data || response;
 
-      // Processar resposta padrão (valida success/message/error) e extrair dados
-      const createdGoCall = handleApiResponse<GoCall>(response);
+      if (!responseData || typeof responseData !== "object") {
+        throw new Error("Erro ao criar chamado - resposta vazia");
+      }
 
       // Converter chamado do Go para o formato do frontend
-      const frontendCall = mapGoCallToFrontend(createdGoCall);
-
-      console.log("🔄 Chamado criado convertido:", frontendCall);
+      const frontendCall = await mapGoCallToFrontend(responseData);
 
       return frontendCall;
     } catch (error) {
-      console.error("💥 Erro ao criar chamado:", error);
       handleApiError(error, {
         service: "GoCallsService",
         method: "createCall",
@@ -140,14 +154,10 @@ export class GoCallsService {
     callData: GoUpdateCallRequest
   ): Promise<any> {
     try {
-      console.log("🔍 Atualizando chamado:", id, callData);
-
       const response = await apiClient.put<GoCall>(
         GO_API_ENDPOINTS.CALLS.UPDATE(id),
         callData
       );
-
-      console.log("📥 Resposta do backend Go (atualizar chamado):", response);
 
       // Acessar os dados da resposta da API
       if (!response.data) {
@@ -155,13 +165,10 @@ export class GoCallsService {
       }
 
       // Converter chamado do Go para o formato do frontend
-      const frontendCall = mapGoCallToFrontend(response.data);
-
-      console.log("🔄 Chamado atualizado convertido:", frontendCall);
+      const frontendCall = await mapGoCallToFrontend(response.data);
 
       return frontendCall;
     } catch (error) {
-      console.error("💥 Erro ao atualizar chamado:", error);
       handleApiError(error, {
         service: "GoCallsService",
         method: "updateCall",
@@ -175,13 +182,8 @@ export class GoCallsService {
    */
   static async deleteCall(id: string): Promise<void> {
     try {
-      console.log("🔍 Deletando chamado:", id);
-
       await apiClient.delete(GO_API_ENDPOINTS.CALLS.DELETE(id));
-
-      console.log("✅ Chamado deletado com sucesso");
     } catch (error) {
-      console.error("💥 Erro ao deletar chamado:", error);
       handleApiError(error, {
         service: "GoCallsService",
         method: "deleteCall",
@@ -195,14 +197,10 @@ export class GoCallsService {
    */
   static async assignCall(callId: string, userId: string): Promise<any> {
     try {
-      console.log("🔍 Atribuindo chamado:", callId, "para usuário:", userId);
-
       const response = await apiClient.put<GoCall>(
         GO_API_ENDPOINTS.CALLS.UPDATE(callId),
         { assignedToId: userId }
       );
-
-      console.log("📥 Resposta do backend Go (atribuir chamado):", response);
 
       // Acessar os dados da resposta da API
       if (!response.data) {
@@ -210,13 +208,10 @@ export class GoCallsService {
       }
 
       // Converter chamado do Go para o formato do frontend
-      const frontendCall = mapGoCallToFrontend(response.data);
-
-      console.log("🔄 Chamado atribuído convertido:", frontendCall);
+      const frontendCall = await mapGoCallToFrontend(response.data);
 
       return frontendCall;
     } catch (error) {
-      console.error("💥 Erro ao atribuir chamado:", error);
       handleApiError(error, {
         service: "GoCallsService",
         method: "assignCall",

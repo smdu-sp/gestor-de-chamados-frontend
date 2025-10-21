@@ -145,17 +145,7 @@ export class ErrorHandler {
   static handleApiError(error: any, context?: Record<string, any>): never {
     const appError = ErrorHandler.createAppError(error, context);
 
-    // Log error for debugging (in development)
-    if (process.env.NODE_ENV === "development") {
-      console.error("API Error:", {
-        message: appError.message,
-        type: appError.type,
-        severity: appError.severity,
-        context: appError.context,
-        originalError: appError.originalError,
-      });
-    }
-
+    // Handle error silently in production
     throw appError;
   }
 

@@ -377,8 +377,8 @@ export const storageUtils = {
     try {
       localStorage.setItem(key, JSON.stringify(value))
     } catch (error) {
-      console.error('Failed to save to localStorage:', error)
-    }
+    // Handle error silently
+  }
   },
 
   // Remove item from localStorage
@@ -386,8 +386,8 @@ export const storageUtils = {
     try {
       localStorage.removeItem(key)
     } catch (error) {
-      console.error('Failed to remove from localStorage:', error)
-    }
+    // Handle error silently
+  }
   },
 
   // Clear all localStorage
@@ -395,8 +395,8 @@ export const storageUtils = {
     try {
       localStorage.clear()
     } catch (error) {
-      console.error('Failed to clear localStorage:', error)
-    }
+    // Handle error silently
+  }
   }
 }
 

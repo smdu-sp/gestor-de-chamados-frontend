@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from "react";
 // import { AuthService } from '@/services/auth.service' // Comentado temporariamente
-import { GoAuthService } from '@/services/go-auth.service'; // Usando o adaptador Go
-import { User } from '@/types/auth';
+import { GoAuthService } from "@/services/go-auth.service"; // Usando o adaptador Go
+import { User } from "@/types/auth";
 
 interface AuthContextType {
   user: User | null;
@@ -30,15 +30,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userData = await GoAuthService.getCurrentUser();
         setUser(userData);
       }
-      
+
       // TODO: Quando o backend estiver completo, voltar para:
       // if (AuthService.isAuthenticated()) {
       //   const userData = await AuthService.getCurrentUser()
       //   setUser(userData)
       // }
-      
     } catch (error) {
-      console.error('Auth check error:', error);
+      // Handle auth check error silently
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -48,11 +47,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       // Usando o serviço adaptador do Go temporariamente
-      const response = await GoAuthService.login({ login: email, password });
-      
+      const response = await GoAuthService.login({
+        login: email,
+        password,
+      });
+
       // TODO: Quando o backend estiver completo, voltar para:
       // const response = await AuthService.login({ email, password })
-      
+
       setUser(response.user);
       return response;
     } catch (error) {
@@ -64,13 +66,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Usando o serviço adaptador do Go temporariamente
       await GoAuthService.logout();
-      
+
       // TODO: Quando o backend estiver completo, voltar para:
       // await AuthService.logout()
-      
+
       setUser(null);
     } catch (error) {
-      console.error('Logout error:', error);
+      // Handle logout error silently
     }
   };
 
@@ -78,25 +80,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Usando o serviço adaptador do Go temporariamente
       const userData = await GoAuthService.getCurrentUser();
-      
+
       // TODO: Quando o backend estiver completo, voltar para:
       // const userData = await AuthService.getCurrentUser();
-      
+
       setUser(userData);
     } catch (error) {
-      console.error('Erro ao atualizar dados do usuário:', error);
+      // Handle user data update error silently
       setUser(null);
     }
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      isLoading,
-      login,
-      logout,
-      refreshUser
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        logout,
+        refreshUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -105,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
+    throw new Error("useAuth deve ser usado dentro de um AuthProvider");
   }
   return context;
 }
